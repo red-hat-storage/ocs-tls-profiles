@@ -1,0 +1,9 @@
+apiVersion: ocs.openshift.io/v1
+kind: TLSProfile
+metadata:
+  labels:
+    app.kubernetes.io/name: ocs-tls-profiles
+    app.kubernetes.io/managed-by: kustomize
+  name: tlsprofile-sample
+spec:
+  # TODO(user): Add fields here
