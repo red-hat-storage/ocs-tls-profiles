@@ -103,7 +103,9 @@ type TLSProfileSpec struct {
 	Rules []TLSProfileRules `json:"rules,omitzero"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+type TLSProfileStatus struct{}
 
 // TLSProfile is the Schema for the tlsprofiles API.
 // It allows administrators to configure TLS settings (protocol versions, ciphers, groups)
@@ -117,6 +119,8 @@ type TLSProfile struct {
 	// classical NIST curves (secp256r1, secp384r1, secp521r1). ChaCha20-Poly1305 ciphers and
 	// hybrid post-quantum groups are not FIPS 140-2 approved. [Apr 2026]
 	Spec TLSProfileSpec `json:"spec,omitzero"`
+	// +optional
+	Status TLSProfileStatus `json:"status,omitzero"`
 }
 
 //+kubebuilder:object:root=true
