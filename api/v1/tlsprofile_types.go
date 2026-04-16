@@ -1,5 +1,5 @@
 /*
-Copyright 2026.
+Copyright 2026 Red Hat OpenShift Data Foundation.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,67 +20,108 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// TLSProtocolVersion represents a TLS protocol version.
+// Only TLS 1.2 and 1.3 are supported as TLS 1.0 and 1.1 are considered vulnerable.
+// +kubebuilder:validation:Enum=TLSv1.2;TLSv1.3
+type TLSProtocolVersion string
 
-// TLSProfileSpec defines the desired state of TLSProfile
+const (
+	// VersionTLS1_2 is version 1.2 of the TLS security protocol.
+	VersionTLS1_2 TLSProtocolVersion = "TLSv1.2"
+	// VersionTLS1_3 is version 1.3 of the TLS security protocol.
+	VersionTLS1_3 TLSProtocolVersion = "TLSv1.3"
+)
+
+// TLSCipherSuite is an IANA TLS cipher suite name.
+// TLS 1.2 ciphers are configurable in both Go and OpenSSL servers.
+// TLS 1.3 ciphers are configurable in OpenSSL only; Go selects TLS 1.3 ciphers automatically.
+// Note: ChaCha20-Poly1305 ciphers are not FIPS 140-2 approved - do not use them on FIPS-enabled clusters.
+// +kubebuilder:validation:Enum=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256;TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384;TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256;TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256;TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384;TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256;TLS_AES_128_GCM_SHA256;TLS_AES_256_GCM_SHA384;TLS_CHACHA20_POLY1305_SHA256
+type TLSCipherSuite string
+
+// TLSGroupName is a TLS key exchange group name.
+// Classical groups (secp256r1, secp384r1, secp521r1, X25519) are valid for TLS 1.2 and TLS 1.3.
+// Hybrid post-quantum groups (X25519MLKEM768, SecP256r1MLKEM768, SecP384r1MLKEM1024) are valid for TLS 1.3 only.
+// Note: Hybrid post-quantum groups are not FIPS 140-2 approved - do not use them on FIPS-enabled clusters.
+// +kubebuilder:validation:Enum=secp256r1;secp384r1;secp521r1;X25519;X25519MLKEM768;SecP256r1MLKEM768;SecP384r1MLKEM1024
+type TLSGroupName string
+
+// TLSConfig defines the TLS security configuration for a component.
+// Ensure ciphers and groups are compatible with the specified version:
+// TLS 1.2 ciphers and classical groups only for TLSv1.2; TLS 1.3 ciphers and any group for TLSv1.3.
+// +kubebuilder:validation:XValidation:rule="self.version != 'TLSv1.2' || !self.ciphers.exists(c, c in ['TLS_AES_128_GCM_SHA256','TLS_AES_256_GCM_SHA384','TLS_CHACHA20_POLY1305_SHA256'])",message="TLS 1.3 ciphers are not valid for TLSv1.2"
+// +kubebuilder:validation:XValidation:rule="self.version != 'TLSv1.3' || !self.ciphers.exists(c, c in ['TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256','TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384','TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256','TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256','TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384','TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256'])",message="TLS 1.2 ciphers are not valid for TLSv1.3"
+// +kubebuilder:validation:XValidation:rule="self.version != 'TLSv1.2' || !self.groups.exists(g, g in ['X25519MLKEM768','SecP256r1MLKEM768','SecP384r1MLKEM1024'])",message="hybrid post-quantum groups are not valid for TLSv1.2"
+type TLSConfig struct {
+	// Version specifies the minimum and maximum TLS protocol version.
+	// +kubebuilder:validation:Required
+	Version TLSProtocolVersion `json:"version"`
+
+	// Ciphers is the list of IANA cipher suite names to enable, in preference order.
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:UniqueItems=true
+	Ciphers []TLSCipherSuite `json:"ciphers"`
+
+	// Groups is the list of key exchange groups to enable, in preference order.
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:UniqueItems=true
+	Groups []TLSGroupName `json:"groups"`
+}
+
+// Selector is a selector pattern identifying which components a TLS rule applies to.
+// Valid forms:
+//   - "<domain>/<server>"   - exact domain and server
+//   - "<domain>"            - all servers under this domain
+//   - "*.<suffix>/<server>" - a specific server under any domain ending with suffix
+//   - "*.<suffix>"          - all servers under any domain ending with suffix
+//   - "*/<server>"          - a specific server under any domain
+//   - "*"                   - catch-all wildcard
+//
+// +kubebuilder:validation:Pattern=`^(\*(\.[^/]+)?(\/[^/]+)?|[^*/][^/]*(\/[^/]+)?)$`
+type Selector string
+
+// TLSProfileRules pairs a selector with a TLS configuration.
+type TLSProfileRules struct {
+	// Selectors identifies the components this rule applies to.
+	// Examples:
+	//   "example.io/s3"      - Matches the S3 server under example.io
+	//   "example.io"         - Matches all servers under example.io
+	//   "*.example.io/s3"    - Matches the S3 server under any subdomain of example.io
+	//   "*.example.io"       - Matches all servers under any subdomain of example.io
+	//   "*/s3"               - Matches the S3 server under any domain
+	//   "*"                  - Matches all servers under any domain
+	Selectors []Selector `json:"selectors,omitzero"`
+
+	// Config is the TLS configuration to apply to the selected components.
+	Config TLSConfig `json:"config,omitzero"`
+}
+
+// TLSProfileSpec defines the desired state of TLSProfile.
 type TLSProfileSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// The following markers will use OpenAPI v3 schema to validate the value
-	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
-
-	// foo is an example field of TLSProfile. Edit tlsprofile_types.go to remove/update
-	// +optional
-	Foo *string `json:"foo,omitempty"`
+	// Rules is a list of TLS configuration rules.
+	// When multiple rules match a component, the most specific selector wins.
+	Rules []TLSProfileRules `json:"rules,omitzero"`
 }
 
-// TLSProfileStatus defines the observed state of TLSProfile.
-type TLSProfileStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+//+kubebuilder:object:root=true
 
-	// For Kubernetes API conventions, see:
-	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
-
-	// conditions represent the current state of the TLSProfile resource.
-	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
-	//
-	// Standard condition types include:
-	// - "Available": the resource is fully functional
-	// - "Progressing": the resource is being created or updated
-	// - "Degraded": the resource failed to reach or maintain its desired state
-	//
-	// The status of each condition is one of True, False, or Unknown.
-	// +listType=map
-	// +listMapKey=type
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-}
-
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-
-// TLSProfile is the Schema for the tlsprofiles API
+// TLSProfile is the Schema for the tlsprofiles API.
+// It allows administrators to configure TLS settings (protocol versions, ciphers, groups)
+// in a centralized way.
 type TLSProfile struct {
-	metav1.TypeMeta `json:",inline"`
-
-	// metadata is a standard object metadata
-	// +optional
+	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
-	// spec defines the desired state of TLSProfile
-	// +required
-	Spec TLSProfileSpec `json:"spec"`
-
-	// status defines the observed state of TLSProfile
-	// +optional
-	Status TLSProfileStatus `json:"status,omitzero"`
+	// Spec defines the desired TLS configuration rules.
+	// WARNING: On FIPS-enabled clusters, restrict ciphers to AES-GCM variants and groups to
+	// classical NIST curves (secp256r1, secp384r1, secp521r1). ChaCha20-Poly1305 ciphers and
+	// hybrid post-quantum groups are not FIPS 140-2 approved. [Apr 2026]
+	Spec TLSProfileSpec `json:"spec,omitzero"`
 }
 
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
 
-// TLSProfileList contains a list of TLSProfile
+// TLSProfileList contains a list of TLSProfile resources.
 type TLSProfileList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`

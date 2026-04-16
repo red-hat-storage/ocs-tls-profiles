@@ -17,7 +17,10 @@ spec:
   - name: v1
     schema:
       openAPIV3Schema:
-        description: TLSProfile is the Schema for the tlsprofiles API
+        description: |-
+          TLSProfile is the Schema for the tlsprofiles API.
+          It allows administrators to configure TLS settings (protocol versions, ciphers, groups)
+          in a centralized way.
         properties:
           apiVersion:
             description: |-
@@ -37,90 +40,123 @@ spec:
           metadata:
             type: object
           spec:
-            description: spec defines the desired state of TLSProfile
+            description: |-
+              Spec defines the desired TLS configuration rules.
+              WARNING: On FIPS-enabled clusters, restrict ciphers to AES-GCM variants and groups to
+              classical NIST curves (secp256r1, secp384r1, secp521r1). ChaCha20-Poly1305 ciphers and
+              hybrid post-quantum groups are not FIPS 140-2 approved. [Apr 2026]
             properties:
-              foo:
-                description: foo is an example field of TLSProfile. Edit tlsprofile_types.go
-                  to remove/update
-                type: string
-            type: object
-          status:
-            description: status defines the observed state of TLSProfile
-            properties:
-              conditions:
+              rules:
                 description: |-
-                  conditions represent the current state of the TLSProfile resource.
-                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
-
-                  Standard condition types include:
-                  - "Available": the resource is fully functional
-                  - "Progressing": the resource is being created or updated
-                  - "Degraded": the resource failed to reach or maintain its desired state
-
-                  The status of each condition is one of True, False, or Unknown.
+                  Rules is a list of TLS configuration rules.
+                  When multiple rules match a component, the most specific selector wins.
                 items:
-                  description: Condition contains details for one aspect of the current
-                    state of this API Resource.
+                  description: TLSProfileRules pairs a selector with a TLS configuration.
                   properties:
-                    lastTransitionTime:
+                    config:
+                      description: Config is the TLS configuration to apply to the
+                        selected components.
+                      properties:
+                        ciphers:
+                          description: Ciphers is the list of IANA cipher suite names
+                            to enable, in preference order.
+                          items:
+                            description: |-
+                              TLSCipherSuite is an IANA TLS cipher suite name.
+                              TLS 1.2 ciphers are configurable in both Go and OpenSSL servers.
+                              TLS 1.3 ciphers are configurable in OpenSSL only; Go selects TLS 1.3 ciphers automatically.
+                              Note: ChaCha20-Poly1305 ciphers are not FIPS 140-2 approved - do not use them on FIPS-enabled clusters.
+                            enum:
+                            - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+                            - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+                            - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+                            - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+                            - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+                            - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+                            - TLS_AES_128_GCM_SHA256
+                            - TLS_AES_256_GCM_SHA384
+                            - TLS_CHACHA20_POLY1305_SHA256
+                            type: string
+                          minItems: 1
+                          type: array
+                          uniqueItems: true
+                        groups:
+                          description: Groups is the list of key exchange groups to
+                            enable, in preference order.
+                          items:
+                            description: |-
+                              TLSGroupName is a TLS key exchange group name.
+                              Classical groups (secp256r1, secp384r1, secp521r1, X25519) are valid for TLS 1.2 and TLS 1.3.
+                              Hybrid post-quantum groups (X25519MLKEM768, SecP256r1MLKEM768, SecP384r1MLKEM1024) are valid for TLS 1.3 only.
+                              Note: Hybrid post-quantum groups are not FIPS 140-2 approved - do not use them on FIPS-enabled clusters.
+                            enum:
+                            - secp256r1
+                            - secp384r1
+                            - secp521r1
+                            - X25519
+                            - X25519MLKEM768
+                            - SecP256r1MLKEM768
+                            - SecP384r1MLKEM1024
+                            type: string
+                          minItems: 1
+                          type: array
+                          uniqueItems: true
+                        version:
+                          description: Version specifies the minimum and maximum TLS
+                            protocol version.
+                          enum:
+                          - TLSv1.2
+                          - TLSv1.3
+                          type: string
+                      required:
+                      - ciphers
+                      - groups
+                      - version
+                      type: object
+                      x-kubernetes-validations:
+                      - message: TLS 1.3 ciphers are not valid for TLSv1.2
+                        rule: self.version != 'TLSv1.2' || !self.ciphers.exists(c,
+                          c in ['TLS_AES_128_GCM_SHA256','TLS_AES_256_GCM_SHA384','TLS_CHACHA20_POLY1305_SHA256'])
+                      - message: TLS 1.2 ciphers are not valid for TLSv1.3
+                        rule: self.version != 'TLSv1.3' || !self.ciphers.exists(c,
+                          c in ['TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256','TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384','TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256','TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256','TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384','TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256'])
+                      - message: hybrid post-quantum groups are not valid for TLSv1.2
+                        rule: self.version != 'TLSv1.2' || !self.groups.exists(g,
+                          g in ['X25519MLKEM768','SecP256r1MLKEM768','SecP384r1MLKEM1024'])
+                    selectors:
                       description: |-
-                        lastTransitionTime is the last time the condition transitioned from one status to another.
-                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
-                      format: date-time
-                      type: string
-                    message:
-                      description: |-
-                        message is a human readable message indicating details about the transition.
-                        This may be an empty string.
-                      maxLength: 32768
-                      type: string
-                    observedGeneration:
-                      description: |-
-                        observedGeneration represents the .metadata.generation that the condition was set based upon.
-                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-                        with respect to the current state of the instance.
-                      format: int64
-                      minimum: 0
-                      type: integer
-                    reason:
-                      description: |-
-                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
-                        Producers of specific condition types may define expected values and meanings for this field,
-                        and whether the values are considered a guaranteed API.
-                        The value should be a CamelCase string.
-                        This field may not be empty.
-                      maxLength: 1024
-                      minLength: 1
-                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
-                      type: string
-                    status:
-                      description: status of the condition, one of True, False, Unknown.
-                      enum:
-                      - "True"
-                      - "False"
-                      - Unknown
-                      type: string
-                    type:
-                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
-                      maxLength: 316
-                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
-                      type: string
+                        Selectors identifies the components this rule applies to.
+                        Examples:
+                          "example.io/s3"      - Matches the S3 server under example.io
+                          "example.io"         - Matches all servers under example.io
+                          "*.example.io/s3"    - Matches the S3 server under any subdomain of example.io
+                          "*.example.io"       - Matches all servers under any subdomain of example.io
+                          "*/s3"               - Matches the S3 server under any domain
+                          "*"                  - Matches all servers under any domain
+                      items:
+                        description: |-
+                          Selector is a selector pattern identifying which components a TLS rule applies to.
+                          Valid forms:
+                            - "<domain>/<server>"   - exact domain and server
+                            - "<domain>"            - all servers under this domain
+                            - "*.<suffix>/<server>" - a specific server under any domain ending with suffix
+                            - "*.<suffix>"          - all servers under any domain ending with suffix
+                            - "*/<server>"          - a specific server under any domain
+                            - "*"                   - catch-all wildcard
+                        pattern: ^(\*(\.[^/]+)?(\/[^/]+)?|[^*/][^/]*(\/[^/]+)?)$
+                        type: string
+                      type: array
                   required:
-                  - lastTransitionTime
-                  - message
-                  - reason
-                  - status
-                  - type
+                  - config
+                  - selectors
                   type: object
                 type: array
-                x-kubernetes-list-map-keys:
-                - type
-                x-kubernetes-list-type: map
+            required:
+            - rules
             type: object
         required:
+        - metadata
         - spec
         type: object
     served: true
     storage: true
-    subresources:
-      status: {}
