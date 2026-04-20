@@ -59,12 +59,14 @@ type TLSConfig struct {
 
 	// Ciphers is the list of IANA cipher suite names to enable, in preference order.
 	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:UniqueItems=true
+	// +kubebuilder:validation:MaxItems=20
+	// +listType=set
 	Ciphers []TLSCipherSuite `json:"ciphers"`
 
 	// Groups is the list of key exchange groups to enable, in preference order.
 	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:UniqueItems=true
+	// +kubebuilder:validation:MaxItems=20
+	// +listType=set
 	Groups []TLSGroupName `json:"groups"`
 }
 
@@ -90,6 +92,7 @@ type TLSProfileRules struct {
 	//   "*.example.io"       - Matches all servers under any subdomain of example.io
 	//   "*/s3"               - Matches the S3 server under any domain
 	//   "*"                  - Matches all servers under any domain
+	// +kubebuilder:validation:MaxItems=20
 	Selectors []Selector `json:"selectors,omitzero"`
 
 	// Config is the TLS configuration to apply to the selected components.
@@ -100,6 +103,7 @@ type TLSProfileRules struct {
 type TLSProfileSpec struct {
 	// Rules is a list of TLS configuration rules.
 	// When multiple rules match a component, the most specific selector wins.
+	// +kubebuilder:validation:MaxItems=20
 	Rules []TLSProfileRules `json:"rules,omitzero"`
 }
 
