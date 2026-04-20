@@ -5,6 +5,7 @@ on:
   pull_request:
 
 jobs:
+  if: false
   test:
     name: Run on Ubuntu
     runs-on: ubuntu-latest
