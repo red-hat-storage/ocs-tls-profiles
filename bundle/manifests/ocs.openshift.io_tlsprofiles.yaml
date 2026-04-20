@@ -138,22 +138,24 @@ spec:
                       items:
                         description: |-
                           Selector is a selector pattern identifying which components a TLS rule applies to.
-                          Valid forms:
-                            - "<domain>/<server>"   - exact domain and server
-                            - "<domain>"            - all servers under this domain
-                            - "*.<suffix>/<server>" - a specific server under any domain ending with suffix
-                            - "*.<suffix>"          - all servers under any domain ending with suffix
-                            - "*/<server>"          - a specific server under any domain
-                            - "*"                   - catch-all wildcard
-                        pattern: ^(\*(\.[^/]+)?(\/[^/]+)?|[^*/][^/]*(\/[^/]+)?)$
+                          Resolution order (most specific wins):
+                           1. "<domain>/<server>"    - match a server under exact domain
+                           2. "<domain>"             - match all servers under exact domain
+                           3. "*.<domain>/<server>"  - match a server under domain
+                           4. "*.<domain>"           - match all servers under domain
+                           5. "*/<server>"           - match a server under any domain
+                           6. "*"                    - matches everything
+                        pattern: ^(\*|(([a-zA-Z0-9][-]?)*[a-zA-Z0-9]))(\.([a-zA-Z0-9][-]?)*[a-zA-Z0-9])*(\/[a-zA-Z0-9_-]+)?$
                         type: string
                       maxItems: 20
+                      minItems: 1
                       type: array
                   required:
                   - config
                   - selectors
                   type: object
                 maxItems: 20
+                minItems: 1
                 type: array
             required:
             - rules
@@ -166,6 +168,8 @@ spec:
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""

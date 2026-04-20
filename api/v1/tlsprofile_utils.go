@@ -26,19 +26,20 @@ import (
 
 // selectorRe validates the two valid selector forms:
 //
-//	wildcard branch: \*(\.[^/]+)?(\/[^/]+)?
-//	  \*         - literal '*'
-//	  \.[^/]+    - optional dot-suffix e.g. ".example.com" (one or more non-slash chars)
-//	  \/[^/]+    - optional server e.g. "/s3"
+//	wildcard branch: \*
+//	  \*                          - literal '*'
 //
-//	exact branch:   [^*/][^/]*(\/[^/]+)?
-//	  [^*/]      - first char must not be '*' or '/'
-//	  [^/]*      - remaining domain chars (dots allowed)
-//	  \/[^/]+    - optional server
+//	exact branch:   (([a-zA-Z0-9][-]?)*[a-zA-Z0-9])
+//	  ([a-zA-Z0-9][-]?)*         - zero or more alnum chars each optionally followed by a hyphen
+//	  [a-zA-Z0-9]                - must end with alnum (no trailing hyphen)
+//
+//	both branches may be followed by:
+//	  (\.([a-zA-Z0-9][-]?)*[a-zA-Z0-9])*  - zero or more dot-separated labels (same alnum/hyphen rule)
+//	  (\/[a-zA-Z0-9_-]+)?                 - optional server e.g. "/s3"
 //
 // Rejected examples: "" (empty), "/s3" (leading slash), "example.com/" (empty server),
-// "a/b/c" (two slashes), "*example.com" ('*' not followed by '.' '/' or end).
-var selectorRe = regexp.MustCompile(`^(\*(\.[^/]+)?(\/[^/]+)?|[^*/][^/]*(\/[^/]+)?)$`)
+// "a/b/c" (two slashes), "-example.com" (label starts with hyphen), "example-.com" (label ends with hyphen).
+var selectorRe = regexp.MustCompile(`^(\*|(([a-zA-Z0-9][-]?)*[a-zA-Z0-9]))(\.([a-zA-Z0-9][-]?)*[a-zA-Z0-9])*(\/[a-zA-Z0-9_-]+)?$`)
 
 // versionToGoID returns the Go crypto/tls constant for version.
 func versionToGoID(version TLSProtocolVersion) (uint16, bool) {
