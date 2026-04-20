@@ -77,9 +77,10 @@ spec:
                             - TLS_AES_256_GCM_SHA384
                             - TLS_CHACHA20_POLY1305_SHA256
                             type: string
+                          maxItems: 20
                           minItems: 1
                           type: array
-                          uniqueItems: true
+                          x-kubernetes-list-type: set
                         groups:
                           description: Groups is the list of key exchange groups to
                             enable, in preference order.
@@ -98,9 +99,10 @@ spec:
                             - SecP256r1MLKEM768
                             - SecP384r1MLKEM1024
                             type: string
+                          maxItems: 20
                           minItems: 1
                           type: array
-                          uniqueItems: true
+                          x-kubernetes-list-type: set
                         version:
                           description: Version specifies the minimum and maximum TLS
                             protocol version.
@@ -145,11 +147,13 @@ spec:
                             - "*"                   - catch-all wildcard
                         pattern: ^(\*(\.[^/]+)?(\/[^/]+)?|[^*/][^/]*(\/[^/]+)?)$
                         type: string
+                      maxItems: 20
                       type: array
                   required:
                   - config
                   - selectors
                   type: object
+                maxItems: 20
                 type: array
             required:
             - rules
