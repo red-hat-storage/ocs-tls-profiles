@@ -1,0 +1,23 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: ocs-tls-profiles
+  name: ocs-tls-profiles-tlsprofile-viewer-role
+rules:
+- apiGroups:
+  - ocs.openshift.io
+  resources:
+  - tlsprofiles
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ocs.openshift.io
+  resources:
+  - tlsprofiles/status
+  verbs:
+  - get

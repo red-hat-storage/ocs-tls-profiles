@@ -59,25 +59,27 @@ type TLSConfig struct {
 
 	// Ciphers is the list of IANA cipher suite names to enable, in preference order.
 	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:UniqueItems=true
+	// +kubebuilder:validation:MaxItems=20
+	// +listType=set
 	Ciphers []TLSCipherSuite `json:"ciphers"`
 
 	// Groups is the list of key exchange groups to enable, in preference order.
 	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:UniqueItems=true
+	// +kubebuilder:validation:MaxItems=20
+	// +listType=set
 	Groups []TLSGroupName `json:"groups"`
 }
 
 // Selector is a selector pattern identifying which components a TLS rule applies to.
-// Valid forms:
-//   - "<domain>/<server>"   - exact domain and server
-//   - "<domain>"            - all servers under this domain
-//   - "*.<suffix>/<server>" - a specific server under any domain ending with suffix
-//   - "*.<suffix>"          - all servers under any domain ending with suffix
-//   - "*/<server>"          - a specific server under any domain
-//   - "*"                   - catch-all wildcard
+// Resolution order (most specific wins):
+//  1. "<domain>/<server>"    - match a server under exact domain
+//  2. "<domain>"             - match all servers under exact domain
+//  3. "*.<domain>/<server>"  - match a server under domain
+//  4. "*.<domain>"           - match all servers under domain
+//  5. "*/<server>"           - match a server under any domain
+//  6. "*"                    - matches everything
 //
-// +kubebuilder:validation:Pattern=`^(\*(\.[^/]+)?(\/[^/]+)?|[^*/][^/]*(\/[^/]+)?)$`
+// +kubebuilder:validation:Pattern=`^(\*|(([a-zA-Z0-9][-]?)*[a-zA-Z0-9]))(\.([a-zA-Z0-9][-]?)*[a-zA-Z0-9])*(\/[a-zA-Z0-9_-]+)?$`
 type Selector string
 
 // TLSProfileRules pairs a selector with a TLS configuration.
@@ -90,6 +92,8 @@ type TLSProfileRules struct {
 	//   "*.example.io"       - Matches all servers under any subdomain of example.io
 	//   "*/s3"               - Matches the S3 server under any domain
 	//   "*"                  - Matches all servers under any domain
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=20
 	Selectors []Selector `json:"selectors,omitzero"`
 
 	// Config is the TLS configuration to apply to the selected components.
@@ -100,16 +104,18 @@ type TLSProfileRules struct {
 type TLSProfileSpec struct {
 	// Rules is a list of TLS configuration rules.
 	// When multiple rules match a component, the most specific selector wins.
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=20
 	Rules []TLSProfileRules `json:"rules,omitzero"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
 type TLSProfileStatus struct{}
 
 // TLSProfile is the Schema for the tlsprofiles API.
 // It allows administrators to configure TLS settings (protocol versions, ciphers, groups)
 // in a centralized way.
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 type TLSProfile struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitzero"`

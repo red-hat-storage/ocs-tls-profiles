@@ -1,7 +1,6 @@
 name: Tests
 
 on:
-  push:
   pull_request:
 
 concurrency:
@@ -10,7 +9,6 @@ concurrency:
 
 jobs:
   test:
-    if: false
     name: Run on Ubuntu
     runs-on: ubuntu-latest
     steps:
@@ -24,5 +22,4 @@ jobs:
 
       - name: Running Tests
         run: |
-          go mod tidy
-          make test
+          make test-api
