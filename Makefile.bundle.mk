@@ -21,6 +21,7 @@ OPERATOR_SDK_VERSION ?= 1.42.2
 
 .PHONY: bundle
 bundle: kustomize operator-sdk manifests
+	rm -rf ./bundle
 	$(OPERATOR_SDK) generate kustomize manifests -q --interactive=false
 	cd config/manifests && $(KUSTOMIZE) edit add patch --name ocs-tls-profiles.v0.0.0 --kind ClusterServiceVersion\
 		--patch '[{"op": "add", "path": "/metadata/annotations/olm.skipRange", "value": "$(SKIP_RANGE)"}]' && \

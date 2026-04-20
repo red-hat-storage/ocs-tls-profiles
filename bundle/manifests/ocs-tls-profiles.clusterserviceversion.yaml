@@ -4,7 +4,7 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Basic Install
-    createdAt: "2026-04-10T07:46:40Z"
+    createdAt: "2026-04-20T09:07:18Z"
     olm.skipRange: ""
     operators.operatorframework.io/builder: operator-sdk-v1.42.2
     operators.operatorframework.io/operator-type: non-standalone
@@ -13,7 +13,16 @@ metadata:
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
-  customresourcedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: |-
+        TLSProfile is the Schema for the tlsprofiles API.
+        It allows administrators to configure TLS settings (protocol versions, ciphers, groups)
+        in a centralized way.
+      displayName: TLSProfile
+      kind: TLSProfile
+      name: tlsprofiles.ocs.openshift.io
+      version: v1
   description: OCS TLS Profiles describe the TLS configuration info that should be
     applied to any of the subscribed server domains.
   displayName: OCS TLS Profiles
