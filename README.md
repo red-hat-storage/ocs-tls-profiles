@@ -15,7 +15,7 @@ make install
 Build and push an OLM bundle for distribution via OperatorHub or a custom catalog:
 
 ```sh
-make bundle bundle-build bundle-push IMG=<registry>/ocs-tls-profiles:tag BUNDLE_IMG=<registry>/ocs-tls-profiles-bundle:tag
+make -f Makefile.bundle.mk bundle-build bundle-push BUNDLE_IMG=<registry>/ocs-tls-profiles-bundle:tag
 ```
 
 ## License
