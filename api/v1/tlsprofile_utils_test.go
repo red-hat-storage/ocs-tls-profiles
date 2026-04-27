@@ -401,12 +401,11 @@ func TestGetConfigForServer(t *testing.T) {
 	}
 }
 
-func TestValidateAndGetGoTLSConfig(t *testing.T) {
+func TestValidateTLSConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   *TLSConfig
 		wantErr bool
-		check   func(*testing.T, *tls.Config)
 	}{
 		{
 			name:    "nil input",
@@ -420,17 +419,6 @@ func TestValidateAndGetGoTLSConfig(t *testing.T) {
 				Ciphers: []TLSCipherSuite{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"},
 				Groups:  []TLSGroupName{"secp256r1", "X25519"},
 			},
-			check: func(t *testing.T, c *tls.Config) {
-				if c.MinVersion != tls.VersionTLS12 || c.MaxVersion != tls.VersionTLS12 {
-					t.Fatalf("want TLS12 min/max; got %x/%x", c.MinVersion, c.MaxVersion)
-				}
-				if len(c.CipherSuites) != 2 {
-					t.Fatalf("want 2 ciphers; got %d", len(c.CipherSuites))
-				}
-				if len(c.CurvePreferences) != 2 {
-					t.Fatalf("want 2 groups; got %d", len(c.CurvePreferences))
-				}
-			},
 		},
 		{
 			name: "TLS 1.3 valid ciphers and groups including hybrid",
@@ -438,17 +426,6 @@ func TestValidateAndGetGoTLSConfig(t *testing.T) {
 				Version: VersionTLS1_3,
 				Ciphers: []TLSCipherSuite{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"},
 				Groups:  []TLSGroupName{"secp256r1", "X25519MLKEM768"},
-			},
-			check: func(t *testing.T, c *tls.Config) {
-				if c.MinVersion != tls.VersionTLS13 || c.MaxVersion != tls.VersionTLS13 {
-					t.Fatalf("want TLS13 min/max; got %x/%x", c.MinVersion, c.MaxVersion)
-				}
-				if len(c.CipherSuites) != 2 {
-					t.Fatalf("want 2 ciphers; got %d", len(c.CipherSuites))
-				}
-				if len(c.CurvePreferences) != 2 {
-					t.Fatalf("want 2 groups; got %d", len(c.CurvePreferences))
-				}
 			},
 		},
 		{
@@ -482,7 +459,7 @@ func TestValidateAndGetGoTLSConfig(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := ValidateAndGetGoTLSConfig(tc.input)
+			err := ValidateTLSConfig(tc.input)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatalf("want error; got nil")
@@ -492,6 +469,59 @@ func TestValidateAndGetGoTLSConfig(t *testing.T) {
 			if err != nil {
 				t.Fatalf("want no error; got %v", err)
 			}
+		})
+	}
+}
+
+func TestGetGoTLSConfig(t *testing.T) {
+	tests := []struct {
+		name  string
+		input *TLSConfig
+		check func(*testing.T, *tls.Config)
+	}{
+		{
+			name: "TLS 1.2 ciphers and groups",
+			input: &TLSConfig{
+				Version: VersionTLS1_2,
+				Ciphers: []TLSCipherSuite{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"},
+				Groups:  []TLSGroupName{"secp256r1", "X25519"},
+			},
+			check: func(t *testing.T, c *tls.Config) {
+				if c.MinVersion != tls.VersionTLS12 || c.MaxVersion != tls.VersionTLS12 {
+					t.Fatalf("want TLS12 min/max; got %x/%x", c.MinVersion, c.MaxVersion)
+				}
+				if len(c.CipherSuites) != 2 {
+					t.Fatalf("want 2 ciphers; got %d", len(c.CipherSuites))
+				}
+				if len(c.CurvePreferences) != 2 {
+					t.Fatalf("want 2 groups; got %d", len(c.CurvePreferences))
+				}
+			},
+		},
+		{
+			name: "TLS 1.3 ciphers and groups including hybrid",
+			input: &TLSConfig{
+				Version: VersionTLS1_3,
+				Ciphers: []TLSCipherSuite{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"},
+				Groups:  []TLSGroupName{"secp256r1", "X25519MLKEM768"},
+			},
+			check: func(t *testing.T, c *tls.Config) {
+				if c.MinVersion != tls.VersionTLS13 || c.MaxVersion != tls.VersionTLS13 {
+					t.Fatalf("want TLS13 min/max; got %x/%x", c.MinVersion, c.MaxVersion)
+				}
+				if len(c.CipherSuites) != 2 {
+					t.Fatalf("want 2 ciphers; got %d", len(c.CipherSuites))
+				}
+				if len(c.CurvePreferences) != 2 {
+					t.Fatalf("want 2 groups; got %d", len(c.CurvePreferences))
+				}
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := GetGoTLSConfig(tc.input)
 			if tc.check != nil {
 				tc.check(t, got)
 			}
