@@ -31,7 +31,7 @@ A `TLSProfile` contains an ordered list of **rules**. Each rule pairs one or mor
 | `*/s3` | server `s3` under any domain |
 | `*` | everything |
 
-**Version** is exact, not a range; `ValidateAndGetGoTLSConfig` sets both `MinVersion` and `MaxVersion` to the same value. This gives a strict "what you configure is what runs" guarantee, backed by the API-level enum and CEL rules that reject incompatible cipher/group combinations per version.
+**Version** is exact, not a range; `GetGoTLSConfig` sets both `MinVersion` and `MaxVersion` to the same value. This gives a strict "what you configure is what runs" guarantee, backed by the API-level enum and CEL rules that reject incompatible cipher/group combinations per version.
 
 **TLS constraints enforced at the API level:**
 - TLS 1.2: only TLS 1.2 ECDHE ciphers and classical groups (`secp256r1`, `secp384r1`, `secp521r1`, `X25519`).
@@ -90,15 +90,17 @@ if !ok {
     // no rule matched - use a default
 }
 
-// 2. Validate and convert to a Go tls.Config (for Go TLS servers).
-goTLS, err := tlsv1.ValidateAndGetGoTLSConfig(cfg)
-if err != nil {
+// 2. Validate cipher/group compatibility with the chosen TLS version.
+if err := tlsv1.ValidateTLSConfig(cfg); err != nil {
     // cipher/group incompatible with version
 }
+
+// 3. Convert to a Go tls.Config (for Go TLS servers).
+goTLS := tlsv1.GetGoTLSConfig(cfg)
 // goTLS has MinVersion, MaxVersion, CipherSuites, and CurvePreferences set.
 // Merge it into your server's tls.Config or pass it to OpenSSLConfigFrom below.
 
-// 3. Convert to OpenSSL strings (for Nginx, HAProxy, etc.).
+// 4. Convert to OpenSSL strings (for Nginx, HAProxy, etc.).
 ossl := tlsv1.OpenSSLConfigFrom(goTLS)
 // ossl.Protocol -> "TLSv1.3"
 // ossl.Ciphers  -> ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"]
